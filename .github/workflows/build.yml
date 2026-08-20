@@ -1,0 +1,103 @@
+name: Build tetopkg packages
+
+on:
+  push:
+    paths:
+      - "srcpkgs/**/template"
+  workflow_dispatch:
+    inputs:
+      pkgname:
+        description: "tetopkg"
+        required: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.detect.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        run: |
+          if [ -n "${{ github.event.inputs.pkgname }}" ]; then
+            echo "packages=[\"${{ github.event.inputs.pkgname }}\"]" >> "$GITHUB_OUTPUT"
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'srcpkgs/*/template' \
+              | sed -E 's#srcpkgs/([^/]+)/template#\1#' | sort -u | jq -R -s -c 'split("\n")[:-1]')
+            echo "packages=${CHANGED}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.packages != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pkg: ${{ fromJson(needs.detect.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full jq
+
+      - name: Download teto-pack
+        run: |
+          curl -L -o tetopkg-linux-x86_64.tar.gz \
+            https://repository.eu.org/releases/tetopkg-linux-x86_64.tar.gz
+          tar -xzf tetopkg-linux-x86_64.tar.gz
+          chmod +x teto-pack
+
+      - name: Build package
+        run: |
+          chmod +x tetopkg-src.sh
+          ./tetopkg-src.sh "${{ matrix.pkg }}"
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          pip install awscli --break-system-packages --quiet
+          FILE=$(find build -name '*.tetopkg')
+          aws s3 cp "$FILE" "s3://${{ secrets.R2_BUCKET }}/x86_64/$(basename "$FILE")" \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "${{ matrix.pkg }}-${{ github.sha }}"
+          files: build/**/*.tetopkg
+
+  reindex:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download teto-repo tool
+        run: |
+          curl -L -o tetopkg-linux-x86_64.tar.gz \
+            https://repository.eu.org/releases/tetopkg-linux-x86_64.tar.gz
+          tar -xzf tetopkg-linux-x86_64.tar.gz
+          chmod +x tetopkg-cli 2>/dev/null || true
+
+      - name: Rebuild repo index from R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          pip install awscli --break-system-packages --quiet
+          mkdir -p repo/x86_64
+          aws s3 sync "s3://${{ secrets.R2_BUCKET }}/x86_64/" repo/x86_64/ \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
+          # TODO: ganti dengan command index generator asli dari teto-repo
+          # (lihat crates/teto-repo-common/src/index.rs & teto-repo/src/repo.rs)
+          # contoh asumsi: ./tetopkg-cli reindex --dir repo/x86_64 --output repo/x86_64/index.tetorepo
+          aws s3 cp repo/x86_64/index.tetorepo \
+            "s3://${{ secrets.R2_BUCKET }}/x86_64/index.tetorepo" \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"

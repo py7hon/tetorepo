@@ -1,0 +1,10 @@
+pkgname=limusic
+version=0.4.11
+revision=1
+short_desc="Limusic desktop app"
+maintainer="Iqbal Rifai <yukifag@proton.me>"
+license="GPL-3.0"
+homepage="https://github.com/SimoHypers/limusic"
+distfiles="https://github.com/SimoHypers/limusic/releases/download/v${version}/limusic_${version}_x64-setup.exe"
+installer_type="nsis"
+arch="x86_64"
