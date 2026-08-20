@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       pkgname:
-        description: "tetorepo"
+        description: "Build satu paket spesifik (kosongkan untuk build semua yang berubah)"
         required: false
 
 jobs:
@@ -75,7 +75,7 @@ jobs:
         run: |
           pip install awscli --break-system-packages --quiet
           FILE=$(find build -name '*.tetopkg')
-          aws s3 cp "$FILE" "s3://${{ secrets.R2_BUCKET }}/x86_64/$(basename "$FILE")" \
+          aws s3 cp "$FILE" "s3://${{ secrets.R2_BUCKET }}/x86_64/packages/$(basename "$FILE")" \
             --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
       - name: Upload to GitHub Releases
@@ -101,11 +101,11 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
         run: |
-          mkdir -p repo/x86_64
-          aws s3 sync "s3://${{ secrets.R2_BUCKET }}/x86_64/" repo/x86_64/ \
-            --endpoint-url "${{ secrets.R2_ENDPOINT }}" --exclude "index.toml"
+          mkdir -p repo/x86_64/packages
+          aws s3 sync "s3://${{ secrets.R2_BUCKET }}/x86_64/packages/" repo/x86_64/packages/ \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
-          python3 gen-index.py repo/x86_64 repo/x86_64/index.toml \
+          python3 gen-index.py repo/x86_64/packages repo/x86_64/index.toml \
             "tetopkg-main" "Official tetopkg repository"
 
           aws s3 cp repo/x86_64/index.toml \
