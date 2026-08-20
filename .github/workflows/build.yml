@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       pkgname:
-        description: "tetopkg"
+        description: "tetorepo"
         required: false
 
 jobs:
@@ -44,6 +44,8 @@ jobs:
     needs: detect
     if: needs.detect.outputs.packages != '[]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
       matrix:
         pkg: ${{ fromJson(needs.detect.outputs.packages) }}
