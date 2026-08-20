@@ -41,28 +41,26 @@ def main():
         info = read_pkginfo(pkg_path)
         pkg = info["package"]
         deps = info.get("deps", {})
-        size_bytes = os.path.getsize(pkg_path)
-        sha256 = sha256_file(pkg_path)
 
         packages.append({
-            "name": pkg["name"],
-            "version": pkg["version"],
-            "pkgrel": pkg.get("pkgrel", 1),
-            "arch": pkg["arch"],
-            "desc": pkg["desc"],
-            "url": pkg["url"],
-            "license": pkg["license"],
-            "size": size_bytes,
-            "isize": pkg.get("size", 0),
-            "builddate": pkg.get("builddate", int(time.time())),
-            "sha256": sha256,
-            "sig": "",
-            "download": os.path.basename(pkg_path),
-            "requires": deps.get("requires", []),
-            "optional": deps.get("optional", []),
-            "conflicts": deps.get("conflicts", []),
-            "provides": deps.get("provides", []),
-            "replaces": deps.get("replaces", []),
+            "package": {
+                "name": pkg["name"],
+                "version": pkg["version"],
+                "pkgrel": pkg.get("pkgrel", 1),
+                "arch": pkg["arch"],
+                "desc": pkg["desc"],
+                "url": pkg["url"],
+                "license": pkg["license"],
+                "size": pkg.get("size", 0),
+                "builddate": pkg.get("builddate", int(time.time())),
+                "packager": pkg.get("packager", "gen-index"),
+            },
+            "deps": {
+                "requires": deps.get("requires", []),
+                "optional": deps.get("optional", []),
+                "conflicts": deps.get("conflicts", []),
+                "provides": deps.get("provides", []),
+            },
         })
 
     index = {
@@ -70,10 +68,7 @@ def main():
             "name": repo_name,
             "description": repo_desc,
             "url": "",
-            "arch": "x86_64",
             "generated": int(time.time()),
-            "version": 1,
-            "pubkey": "",
         },
         "packages": packages,
     }
