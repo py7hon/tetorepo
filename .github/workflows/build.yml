@@ -25,8 +25,18 @@ jobs:
           if [ -n "${{ github.event.inputs.pkgname }}" ]; then
             echo "packages=[\"${{ github.event.inputs.pkgname }}\"]" >> "$GITHUB_OUTPUT"
           else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'srcpkgs/*/template' \
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              DIFF_RANGE="HEAD~1 HEAD"
+            else
+              # commit pertama, gak ada parent — anggap semua template sebagai "berubah"
+              DIFF_RANGE="--root HEAD"
+            fi
+            CHANGED=$(git diff --name-only $DIFF_RANGE -- 'srcpkgs/*/template' \
               | sed -E 's#srcpkgs/([^/]+)/template#\1#' | sort -u | jq -R -s -c 'split("\n")[:-1]')
+            if [ "$CHANGED" = "[]" ]; then
+              # fallback terakhir: list semua srcpkgs yang ada
+              CHANGED=$(find srcpkgs -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
+            fi
             echo "packages=${CHANGED}" >> "$GITHUB_OUTPUT"
           fi
 
