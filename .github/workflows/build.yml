@@ -90,12 +90,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download teto-repo tool
+      - name: Install deps
         run: |
-          curl -L -o tetopkg-linux-x86_64.tar.gz \
-            https://repository.eu.org/releases/tetopkg-linux-x86_64.tar.gz
-          tar -xzf tetopkg-linux-x86_64.tar.gz
-          chmod +x tetopkg-cli 2>/dev/null || true
+          sudo apt-get update && sudo apt-get install -y zstd tar
+          pip install tomli_w awscli --break-system-packages --quiet
 
       - name: Rebuild repo index from R2
         env:
@@ -103,13 +101,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
         run: |
-          pip install awscli --break-system-packages --quiet
           mkdir -p repo/x86_64
           aws s3 sync "s3://${{ secrets.R2_BUCKET }}/x86_64/" repo/x86_64/ \
-            --endpoint-url "${{ secrets.R2_ENDPOINT }}"
-          # TODO: ganti dengan command index generator asli dari teto-repo
-          # (lihat crates/teto-repo-common/src/index.rs & teto-repo/src/repo.rs)
-          # contoh asumsi: ./tetopkg-cli reindex --dir repo/x86_64 --output repo/x86_64/index.tetorepo
-          aws s3 cp repo/x86_64/index.tetorepo \
-            "s3://${{ secrets.R2_BUCKET }}/x86_64/index.tetorepo" \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}" --exclude "index.toml"
+
+          python3 gen-index.py repo/x86_64 repo/x86_64/index.toml \
+            "tetopkg-main" "Official tetopkg repository"
+
+          aws s3 cp repo/x86_64/index.toml \
+            "s3://${{ secrets.R2_BUCKET }}/x86_64/index.toml" \
             --endpoint-url "${{ secrets.R2_ENDPOINT }}"
