@@ -51,6 +51,9 @@ if [ "$TYPE" = "zip" ]; then
     else
         unzip -q payload.bin -d buildroot 2>/dev/null || true
     fi
+else
+    echo ":: Exe installer payload detected, placing installer in buildroot..."
+    cp payload.bin buildroot/installer.exe
 fi
 
 # 2. Validasi hasil extract/buildroot
@@ -89,6 +92,7 @@ shortcut_name = "${shortcut_name:-${pkgname}}"
 installer_type = "${TYPE}"
 installer_url = "${distfiles}"
 installer_sha256 = "${INSTALLER_SHA256}"
+installer_flavor = "${installer_flavor:-}"
 installer_args = "${installer_args:-}"
 
 [deps]
@@ -97,7 +101,18 @@ EOF
 
 echo ":: Package payload size (extracted): ${EXTRACTED_SIZE} bytes (${FILE_COUNT} files)"
 echo ":: Packing .tetopkg..."
-../../teto-pack --tetobuild TETOBUILD --prefix buildroot \
+TETO_PACK_BIN="../../teto-pack"
+if [ ! -f "$TETO_PACK_BIN" ]; then
+    if [ -f "./teto-pack" ]; then
+        TETO_PACK_BIN="./teto-pack"
+    elif [ -f "../../tetopkg/target/debug/teto-pack.exe" ]; then
+        TETO_PACK_BIN="../../tetopkg/target/debug/teto-pack.exe"
+    elif command -v teto-pack >/dev/null 2>&1; then
+        TETO_PACK_BIN="teto-pack"
+    fi
+fi
+
+"$TETO_PACK_BIN" --tetobuild TETOBUILD --prefix buildroot \
     --output "${pkgname}-${version}-${revision}-${arch}.tetopkg"
 
 echo ":: Done: ${WORKDIR}/${pkgname}-${version}-${revision}-${arch}.tetopkg"
