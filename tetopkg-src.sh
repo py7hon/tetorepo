@@ -92,8 +92,7 @@ shortcut_name = "${shortcut_name:-${pkgname}}"
 installer_type = "${TYPE}"
 installer_url = "${distfiles}"
 installer_sha256 = "${INSTALLER_SHA256}"
-installer_flavor = "${installer_flavor:-}"
-installer_args = "${installer_args:-}"
+installer_flavor = "${installer_flavor//\\/\\\\}"
 
 [deps]
 depends = []
