@@ -15,42 +15,25 @@ mkdir -p "$WORKDIR/buildroot"
 cd "$WORKDIR"
 
 echo ":: Downloading distfile..."
-curl -fL -o installer.exe "$distfiles"
+curl -fL -o payload.bin "$distfiles"
 
-echo ":: Extracting installer..."
-if 7z x installer.exe -obuildroot >/dev/null 2>&1; then
-    echo ":: Successfully extracted with 7z."
-    rm -rf buildroot/\$* 2>/dev/null || true
+echo ":: Calculating SHA256 checksum..."
+if command -v sha256sum >/dev/null 2>&1; then
+    INSTALLER_SHA256="$(sha256sum payload.bin | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+    INSTALLER_SHA256="$(shasum -a 256 payload.bin | awk '{print $1}')"
 else
-    echo ":: 7z extraction skipped/failed. Running installer silently..."
-    chmod +x installer.exe
+    INSTALLER_SHA256="$(certutil -hashfile payload.bin SHA256 | sed -n '2p' | tr -d ' \r\n')"
+fi
 
-    BUILDROOT_ABS="$(pwd)/buildroot"
-    if command -v wslpath >/dev/null 2>&1; then
-        BUILDROOT_WIN="$(wslpath -w "$BUILDROOT_ABS")"
-    elif command -v cygpath >/dev/null 2>&1; then
-        BUILDROOT_WIN="$(cygpath -w "$BUILDROOT_ABS")"
-    else
-        BUILDROOT_WIN="Z:${BUILDROOT_ABS//\//\\}"
-    fi
+TYPE="${installer_type:-exe}"
 
-    TYPE="${installer_type:-inno}"
-    if [ -n "${installer_args:-}" ]; then
-        INSTALL_FLAGS="$installer_args"
-    elif [ "$TYPE" = "nsis" ]; then
-        INSTALL_FLAGS="/S /D=${BUILDROOT_WIN}"
+if [ "$TYPE" = "zip" ]; then
+    echo ":: Zip installer payload detected, extracting to buildroot..."
+    if 7z x payload.bin -obuildroot >/dev/null 2>&1; then
+        echo ":: Successfully extracted zip payload."
     else
-        INSTALL_FLAGS="/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=${BUILDROOT_WIN}"
-    fi
-
-    echo ":: Executing installer with flags: $INSTALL_FLAGS"
-    if command -v wine >/dev/null 2>&1; then
-        wine ./installer.exe $INSTALL_FLAGS
-    elif [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || "${OSTYPE:-}" == "win32" || "$(uname -s 2>/dev/null)" == MINGW* || "$(uname -s 2>/dev/null)" == MSYS* ]]; then
-        ./installer.exe $INSTALL_FLAGS
-    else
-        echo "Error: Cannot execute Windows binary on Linux without Wine."
-        exit 1
+        unzip -q payload.bin -d buildroot 2>/dev/null || true
     fi
 fi
 
@@ -66,6 +49,10 @@ url = "${homepage}"
 license = ["${license}"]
 main_exe = "${main_exe:-}"
 shortcut_name = "${shortcut_name:-${pkgname}}"
+installer_type = "${TYPE}"
+installer_url = "${distfiles}"
+installer_sha256 = "${INSTALLER_SHA256}"
+installer_args = "${installer_args:-}"
 
 [deps]
 depends = []
