@@ -64,6 +64,8 @@ pkgdesc = "${short_desc}"
 arch = ["${arch}"]
 url = "${homepage}"
 license = ["${license}"]
+main_exe = "${main_exe:-}"
+shortcut_name = "${shortcut_name:-${pkgname}}"
 
 [deps]
 depends = []
