@@ -78,12 +78,6 @@ jobs:
           aws s3 cp "$FILE" "s3://${{ secrets.R2_BUCKET }}/x86_64/packages/$(basename "$FILE")" \
             --endpoint-url "${{ secrets.R2_ENDPOINT }}"
 
-      - name: Upload to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "${{ matrix.pkg }}-${{ github.sha }}"
-          files: build/**/*.tetopkg
-
   reindex:
     needs: build
     runs-on: ubuntu-latest
