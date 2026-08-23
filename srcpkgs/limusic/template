@@ -1,5 +1,5 @@
 pkgname=limusic
-version=0.4.11
+version=0.5.7
 revision=1
 short_desc="Limusic desktop app"
 maintainer="Iqbal Rifai <yukifag@proton.me>"
