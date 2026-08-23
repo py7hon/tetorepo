@@ -17,6 +17,22 @@ cd "$WORKDIR"
 echo ":: Downloading distfile..."
 curl -fL -o payload.bin "$distfiles"
 
+# 1. Validasi hasil download
+if stat -c%s payload.bin >/dev/null 2>&1; then
+    PAYLOAD_SIZE="$(stat -c%s payload.bin)"
+elif stat -f%z payload.bin >/dev/null 2>&1; then
+    PAYLOAD_SIZE="$(stat -f%z payload.bin)"
+else
+    PAYLOAD_SIZE="$(wc -c < payload.bin | tr -d ' ')"
+fi
+
+if [ "$PAYLOAD_SIZE" -lt 1024 ]; then
+    echo "Error: File payload.bin terlalu kecil (${PAYLOAD_SIZE} bytes). Kemungkinan URL redirect ke halaman error/HTML, bukan file installer asli." >&2
+    exit 1
+fi
+
+echo ":: Downloaded payload.bin (${PAYLOAD_SIZE} bytes)"
+
 echo ":: Calculating SHA256 checksum..."
 if command -v sha256sum >/dev/null 2>&1; then
     INSTALLER_SHA256="$(sha256sum payload.bin | awk '{print $1}')"
@@ -35,6 +51,27 @@ if [ "$TYPE" = "zip" ]; then
     else
         unzip -q payload.bin -d buildroot 2>/dev/null || true
     fi
+fi
+
+# 2. Validasi hasil extract/buildroot
+FILE_COUNT="$(find buildroot -type f | wc -l | tr -d ' ')"
+
+if du -sb buildroot >/dev/null 2>&1; then
+    EXTRACTED_SIZE="$(du -sb buildroot | awk '{print $1}')"
+elif command -v stat >/dev/null 2>&1 && stat -c%s buildroot >/dev/null 2>&1; then
+    EXTRACTED_SIZE="$(find buildroot -type f -exec stat -c%s {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')"
+elif command -v stat >/dev/null 2>&1 && stat -f%z buildroot >/dev/null 2>&1; then
+    EXTRACTED_SIZE="$(find buildroot -type f -exec stat -f%z {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')"
+else
+    EXTRACTED_SIZE="$(find buildroot -type f -exec wc -c {} + 2>/dev/null | awk '{s+=$1} END {print s+0}')"
+fi
+
+echo ":: Extract info: ${FILE_COUNT} files, ${EXTRACTED_SIZE} bytes in buildroot"
+
+if [ "$FILE_COUNT" -eq 0 ] || [ "$EXTRACTED_SIZE" -eq 0 ]; then
+    echo "Error: Hasil ekstraksi/instalasi kosong (0 file / 0 bytes dalam buildroot)." >&2
+    echo "Kemungkinan penyebab: installer bukan 7z-compatible archive, silent install flags salah sehingga installer gagal menulis ke buildroot, atau instalasi butuh privilege/dependency yang tidak tersedia di environment build." >&2
+    exit 1
 fi
 
 echo ":: Generating TETOBUILD..."
@@ -58,6 +95,7 @@ installer_args = "${installer_args:-}"
 depends = []
 EOF
 
+echo ":: Package payload size (extracted): ${EXTRACTED_SIZE} bytes (${FILE_COUNT} files)"
 echo ":: Packing .tetopkg..."
 ../../teto-pack --tetobuild TETOBUILD --prefix buildroot \
     --output "${pkgname}-${version}-${revision}-${arch}.tetopkg"
