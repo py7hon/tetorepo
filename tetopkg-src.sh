@@ -15,7 +15,7 @@ mkdir -p "$WORKDIR/buildroot"
 cd "$WORKDIR"
 
 echo ":: Downloading distfile..."
-curl -L -o installer.exe "$distfiles"
+curl -fL -o installer.exe "$distfiles"
 
 echo ":: Extracting installer..."
 if 7z x installer.exe -obuildroot >/dev/null 2>&1; then
