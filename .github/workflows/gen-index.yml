@@ -1,0 +1,41 @@
+# .github/workflows/gen-index.yml
+name: Generate R2 Index
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # tiap jam, sesuaikan
+  workflow_dispatch:        # bisa trigger manual
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install AWS CLI
+        run: pip install awscli
+
+      - name: Configure R2 credentials
+        run: |
+          mkdir -p ~/.aws
+          cat <<EOF > ~/.aws/credentials
+          [default]
+          aws_access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws_secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          EOF
+
+      - name: List all objects
+        run: |
+          aws s3 ls s3://${{ secrets.R2_BUCKET }} \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --recursive > files.txt
+
+      - name: Generate per-folder index.html
+        run: python3 gen-index-s3.py
+
+      - name: Upload all index.html to R2
+        run: |
+          find out -name "index.html" | while read -r f; do
+            key="${f#out/}"
+            aws s3 cp "$f" "s3://${{ secrets.R2_BUCKET }}/$key" \
+              --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+              --content-type text/html
+          done
