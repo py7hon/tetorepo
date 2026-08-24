@@ -13,29 +13,28 @@ jobs:
       - name: Install AWS CLI
         run: pip install awscli
 
-      - name: Configure R2 credentials
-        run: |
-          mkdir -p ~/.aws
-          cat <<EOF > ~/.aws/credentials
-          [default]
-          aws_access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
-          aws_secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          EOF
-
       - name: List all objects
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
-          aws s3 ls s3://${{ secrets.R2_BUCKET }} \
-            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+          aws s3 ls "s3://${{ secrets.R2_BUCKET }}" \
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}" \
             --recursive > files.txt
 
       - name: Generate per-folder index.html
         run: python3 gen-index-s3.py
 
       - name: Upload all index.html to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
         run: |
           find out -name "index.html" | while read -r f; do
             key="${f#out/}"
             aws s3 cp "$f" "s3://${{ secrets.R2_BUCKET }}/$key" \
-              --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+              --endpoint-url "${{ secrets.R2_ENDPOINT }}" \
               --content-type text/html
           done
