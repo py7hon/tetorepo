@@ -1,0 +1,12 @@
+pkgname=brave
+version=latest
+revision=1
+short_desc="Brave Browser"
+maintainer="Shrek Medan"
+license="Freeware"
+homepage="https://www.brave.com"
+distfiles="https://referrals.brave.com/latest/BraveBrowserSetup-BRV090.exe"
+installer_type="exe"
+installer_flavor=""
+arch="x86_64"
+main_exe="BraveBrowserSetup.exe"
